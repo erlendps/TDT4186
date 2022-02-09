@@ -22,14 +22,11 @@ time_t getTimeFromInput();
 void pressEnterToContinue();
 
 
-
-
 // struct declarations
 typedef struct {
     time_t target;
     pid_t PID;
 } Alarm;
-
 
 
 // Variable declarations
@@ -38,9 +35,10 @@ char inputLine[100];
 Alarm alarms[MAXIMUM_CONCURRENT_ALARMS];
 
 void pressEnterToContinue() {
-    printf("(↵) ");
+    printf("[↵] ");
     fgets(inputLine, 100, stdin);
 }
+
 
 int main() {
 
@@ -50,6 +48,8 @@ int main() {
 
     while (1) {
         command = getCommand();
+        int status;
+        waitpid(-1, &status, WNOHANG);
 
         switch (command) {
             case 's':
@@ -81,10 +81,13 @@ int main() {
 
 char getCommand() {
     char answer = '0';
-    printf("\n************\n");
-    printf("Welcome to the alarm clock! It is currently ...\n");
+    char buffer[26];
+    time_t timeNow = time(NULL);
+    strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", localtime(&timeNow));
+    printf("\n#######################\n");
+    printf("Welcome to the alarm clock! It is currently %s\n", buffer);
     printf("Please enter \"s\" (schedule), \"l\" (list), \"c\" (cancel) or \"x\" (exit)\n");
-    printf("************\n");
+    printf("#######################\n");
     printf("> ");
     // Gets three characters from the input buffer
     // First character is the one we actually want for input
@@ -163,14 +166,11 @@ void cancel() {
     int alarmNumber = getAlarmNumberFromInput();
     if (alarmNumber != -1 && alarms[alarmNumber].PID != -1) {
         kill(alarms[alarmNumber].PID, SIGKILL);
-
-        int status;
-
-
+        int status; // not used, just for storing result
         waitpid(alarms[alarmNumber].PID, &status, 0);
         resetAlarm(alarmNumber);
     } else {
-        printf("(✗) You don't have an alarm with this id.");
+        printf("(✗) You don't have an alarm with this id.\n");
     }
 }
 
@@ -206,7 +206,13 @@ void runAlarm(time_t target) {
 }
 
 void makeSound() {
-    char *programName = "mpg123";
-    char *soundFile = "../alarm_sound.mp3";
-    execlp(programName, programName, soundFile, NULL);
+    char *programName = "screen";
+    char *args[] = {programName, "-d", "-m", "mpg123", "../alarm_sound.mp3", "&&", "exit", NULL};
+    
+    int alarm = fork();
+
+    if (alarm == 0) {
+        execvp(programName, args);
+        exit(0);
+    }
 }
