@@ -1,76 +1,107 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
+#define MAXIMUM_CONCURRENT_ALARMS 10 // Cannot be larger than 10.
 
 // Function declarations
-char getSelection();
+char getCommand();
 void schedule();
-void list();
+int list();
 void cancel();
-void getcharnws(char*);
+bool insertAlarm(time_t target);
+void runAlarm(time_t target);
+void makeSound();
+int getAlarmNumberFromInput();
+void resetAlarm(int alarmNumber);
+time_t getTimeFromInput();
+void pressEnterToContinue();
+
+
+
+
+// struct declarations
+typedef struct {
+    time_t target;
+    pid_t PID;
+} Alarm;
+
+
+
 // Variable declarations
-char selection;
-char inputline[100];
+char command;
+char inputLine[100];
+Alarm alarms[MAXIMUM_CONCURRENT_ALARMS];
+
+void pressEnterToContinue() {
+    printf("(↵) ");
+    fgets(inputLine, 100, stdin);
+}
 
 int main() {
-    
+
+    for (int i = 0; i < MAXIMUM_CONCURRENT_ALARMS; i++) {
+        resetAlarm(i);
+    }
 
     while (1) {
-        selection = getSelection();
+        command = getCommand();
 
-        switch (selection) {
+        switch (command) {
             case 's':
                 schedule();
+                pressEnterToContinue();
                 break;
 
             case 'l':
                 list();
+                pressEnterToContinue();
                 break;
 
             case 'c':
                 cancel();
+                pressEnterToContinue();
                 break;
 
             case 'x':  
                 printf("Goodbye!\n");
-                exit(0);
+                return 0;
 
             default:
-                printf("Not a recognized selection - please try again.\n");
-                printf("Press enter to continue...\n");
-
-                // Termination character + newline
-                fgets(inputline, 2, stdin);
-                printf("\n\n");
+                printf("(✗) Not a recognized command - please try again.\n");
+                pressEnterToContinue();
                 break;
         }
     }
 }
 
-char getSelection() {
+char getCommand() {
     char answer = '0';
+    printf("\n************\n");
     printf("Welcome to the alarm clock! It is currently ...\n");
     printf("Please enter \"s\" (schedule), \"l\" (list), \"c\" (cancel) or \"x\" (exit)\n");
+    printf("************\n");
     printf("> ");
-
     // Gets three characters from the input buffer
     // First character is the one we actually want for input
     // Second character is string termination character(??)
     // Third character is newline
-    fgets(inputline, 3, stdin);
-    answer = inputline[0];
+    fgets(inputLine, 100, stdin);
+    answer = inputLine[0];
     return answer;
 }
 
 time_t getTimeFromInput() {
-    char timeInput[18];
     printf("> ");
-    fgets(timeInput, 18, stdin);
+    fgets(inputLine, 100, stdin);
 
     // Remove the last character, which is the newline entered by the user to input their string.
     char timestamp[17];
-    memcpy(timestamp, &timeInput[0], 17);
+    memcpy(timestamp, &inputLine[0], 17);
     timestamp[16] = '\0';
     
     struct tm timeStruct;
@@ -85,22 +116,97 @@ void schedule() {
     printf("Schedule alarm at which date and time?\n");
     time_t alarmTime = getTimeFromInput();
     if (alarmTime == -1) {
-        printf("Not a valid format - Did not set an alarm.\n");
-        printf("Press enter to continue...\n");
-        fgets(inputline, 2, stdin);
-        printf("\n\n");
+        printf("(✗) Not a valid format - Did not set an alarm.\n");
 
     } else {
-        // Print timestamp to see if it works
-        printf("%lld\n", (long long) alarmTime);
-        // set alarm
+        insertAlarm(alarmTime);
+        char buffer[26];
+        strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", localtime(&alarmTime));
+        printf("(✓) Alarm scheduled for %s\n", buffer);
     }
 }
 
-void list() {
+int list() {
+    int count = 0;
+    for (int i = 0; i < MAXIMUM_CONCURRENT_ALARMS; i++) {
+        if (alarms[i].target != -1) {
+            count++;
+            char buffer[26];
+            strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", localtime(&alarms[i].target));
+            printf("* Alarm %d at ", i);
+            printf("%s\n", buffer);
+        }
+    }
+    printf("(!) You have %d alarm(s).\n", count);
+    return count;
+}
 
+int getAlarmNumberFromInput() {
+    printf("> ");
+    fgets(inputLine, 3, stdin);
+    int inputNumber = (int) inputLine[0] - 48;
+    if (0 <= inputNumber && inputNumber < MAXIMUM_CONCURRENT_ALARMS) {
+        return inputNumber;
+    } else {
+        return -1;
+    }
+}
+
+void resetAlarm(int alarmNumber) {
+    alarms[alarmNumber].PID = -1;
+    alarms[alarmNumber].target = -1;
 }
 
 void cancel() {
+    if (list() == 0) { return; }
+    printf("\n(?) Which alarm would you like to cancel?\n");
+    int alarmNumber = getAlarmNumberFromInput();
+    if (alarmNumber != -1 && alarms[alarmNumber].PID != -1) {
+        kill(alarms[alarmNumber].PID, SIGKILL);
 
+        int status;
+
+
+        waitpid(alarms[alarmNumber].PID, &status, 0);
+        resetAlarm(alarmNumber);
+    } else {
+        printf("(✗) You don't have an alarm with this id.");
+    }
+}
+
+bool insertAlarm(time_t target) {
+    if (target < time(NULL)) {
+        //return false;
+        // TODO: Remove comment
+    }
+    int counter = 0;
+    while (alarms[counter].PID != -1 && counter < MAXIMUM_CONCURRENT_ALARMS) {
+        counter++;
+    }
+    if (counter == MAXIMUM_CONCURRENT_ALARMS) {
+        return false;
+    }
+    pid_t alarmPID = fork();
+    if (alarmPID == 0) { // child process
+        runAlarm(target);
+    } else { // parent process
+        alarms[counter].PID = alarmPID;
+        alarms[counter].target = target;
+    }
+    return true;
+}
+
+void runAlarm(time_t target) {
+    int timeToSleep = target - time(NULL);
+    if (timeToSleep > 0) {
+        sleep(timeToSleep);
+    }
+    makeSound();
+    exit(0);
+}
+
+void makeSound() {
+    char *programName = "mpg123";
+    char *soundFile = "../alarm_sound.mp3";
+    execlp(programName, programName, soundFile, NULL);
 }
