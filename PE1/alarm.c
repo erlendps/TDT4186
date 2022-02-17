@@ -47,10 +47,17 @@ int main() {
     }
 
     while (1) {
-        command = getCommand();
         int status;
-        waitpid(-1, &status, WNOHANG);
+        pid_t zombie = waitpid(-1, &status, WNOHANG);
 
+        for (int i = 0; i < MAXIMUM_CONCURRENT_ALARMS; i++) {
+            if (alarms[i].PID == zombie) {
+                resetAlarm(i);
+                break;
+            }
+        }
+
+        command = getCommand();
         switch (command) {
             case 's':
                 schedule();
@@ -89,6 +96,7 @@ char getCommand() {
     printf("Please enter \"s\" (schedule), \"l\" (list), \"c\" (cancel) or \"x\" (exit)\n");
     printf("#######################\n");
     printf("> ");
+
     // Gets three characters from the input buffer
     // First character is the one we actually want for input
     // Second character is string termination character(??)
@@ -121,8 +129,13 @@ void schedule() {
     if (alarmTime == -1) {
         printf("(✗) Not a valid format - Did not set an alarm.\n");
 
+    } else if (alarmTime < time(NULL)) {
+        printf("(✗) Can only set alarms in the future - Did not set an alarm.\n");
     } else {
-        insertAlarm(alarmTime);
+        if (!insertAlarm(alarmTime)) {
+            printf("(✗) No free space for alarms - please cancel one or more alarms to make space.\n");
+            return;
+        } 
         char buffer[26];
         strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", localtime(&alarmTime));
         printf("(✓) Alarm scheduled for %s\n", buffer);
@@ -146,7 +159,7 @@ int list() {
 
 int getAlarmNumberFromInput() {
     printf("> ");
-    fgets(inputLine, 3, stdin);
+    fgets(inputLine, 100, stdin);
     int inputNumber = (int) inputLine[0] - 48;
     if (0 <= inputNumber && inputNumber < MAXIMUM_CONCURRENT_ALARMS) {
         return inputNumber;
@@ -169,6 +182,7 @@ void cancel() {
         int status; // not used, just for storing result
         waitpid(alarms[alarmNumber].PID, &status, 0);
         resetAlarm(alarmNumber);
+        printf("(✓) Alarm canceled.\n");
     } else {
         printf("(✗) You don't have an alarm with this id.\n");
     }
@@ -197,7 +211,8 @@ bool insertAlarm(time_t target) {
 }
 
 void runAlarm(time_t target) {
-    int timeToSleep = target - time(NULL);
+    // This used to be a int - in which case alarms around the year 2144 would underflow causing the alarm to ring just now.
+    long long timeToSleep = target - time(NULL);
     if (timeToSleep > 0) {
         sleep(timeToSleep);
     }
