@@ -222,7 +222,7 @@ void runAlarm(time_t target) {
 
 void makeSound() {
     char *programName = "screen";
-    char *args[] = {programName, "-d", "-m", "mpg123", "../alarm_sound.mp3", "&&", "exit", NULL};
+    char *args[] = {programName, "-d", "-m", "mpg123", "src/alarm_sound.mp3", "&&", "exit", NULL};
     
     int alarm = fork();
 
