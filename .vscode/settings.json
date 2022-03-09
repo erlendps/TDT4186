@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "in.h": "c",
+        "time.h": "c",
+        "complex": "c",
+        "chrono": "c",
+        "algorithm": "c",
+        "ostream": "c"
+    }
+}
