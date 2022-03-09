@@ -12,6 +12,7 @@
 
 char buffer[MAXREQ], msg[MAXREQ];
 char body[65535] = {'\0'};
+long body_size = 0;
 char content_type[16] = "";
 char *www_path;
 int port;
@@ -83,7 +84,7 @@ void get_content_type(char* path, char result[16]) {
     }
 }
 
-void read_file(char *path, char result[65535]) {
+void read_file(char *path, long *length, char result[65535]) {
     FILE *file;
     char row[65535];
     char abs_path[200] ={'\0'};
@@ -104,6 +105,9 @@ void read_file(char *path, char result[65535]) {
     }
     //fgets(result, 65535, file);
     fread(&result[0], 65535, 1, file);
+    fseek(file, 0, SEEK_END); // seek to end of file
+    *length = ftell(file); // get current file pointer
+    fseek(file, 0, SEEK_SET); // seek back to beginning of file
     
     //while (fgets(row, sizeof row, file) != NULL) {
     //   strcat(result, row);
@@ -158,11 +162,11 @@ int main(int argc, char *argv[]) {
         if (n < 0) error("ERROR reading from socket");
 
         http_request received_request = read_request(buffer);
-        printf("\nType: %s\nPath: %s\n", 
-                received_request.type, received_request.path);
+       // printf("\nType: %s\nPath: %s\n", 
+        //        received_request.type, received_request.path);
         memset(body, '\0', sizeof(body));
-        read_file(received_request.path, body);
-        printf("%s", body);
+        read_file(received_request.path, &body_size, body);
+        //printf("%s", body);
 
         // Make body of response
         get_content_type(received_request.path, content_type);
@@ -171,10 +175,12 @@ int main(int argc, char *argv[]) {
         snprintf(msg, sizeof (msg),
             "HTTP/1.1 200 OK\n"
             "Content-Type: %s\n"
-            "Content-Length: %lu\n\n%s", content_type, strlen(body), body);
+            "Content-Length: %lu\n\n", content_type, body_size);
+
+        memcpy(&msg[strlen(msg)], body, body_size);
 
         // Send the response
-        n = write(newsockfd, msg, strlen(msg)); 
+        n = write(newsockfd, msg, strlen(msg) + body_size); 
         if (n < 0) error("ERROR writing to socket");
 
         // Close the connection
