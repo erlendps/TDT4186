@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "semaphore.h": "c",
+        "sem.h": "c",
+        "pthread.h": "c"
+    }
+}

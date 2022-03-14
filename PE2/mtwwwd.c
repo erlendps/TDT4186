@@ -11,7 +11,7 @@
 #define MAXREQ (4096*1024)
 
 char buffer[MAXREQ], msg[MAXREQ];
-char body[65535] = {'\0'};
+char body[MAXREQ] = {'\0'};
 long body_size = 0;
 char content_type[16] = "";
 char *www_path;
@@ -77,6 +77,7 @@ void get_content_type(char* path, char result[16]) {
             if (!strcmp(token_prev, "css"))  result = "text/css";
             if (!strcmp(token_prev, "ico"))  result = "image/x-icon";
             if (!strcmp(token_prev, "png"))  result = "image/png";
+            if (!strcmp(token_prev, "jpg"))  result = "image/jpeg";
             return;
         } else {
             token_prev = token;
@@ -84,9 +85,9 @@ void get_content_type(char* path, char result[16]) {
     }
 }
 
-void read_file(char *path, long *length, char result[65535]) {
+void read_file(char *path, long *length, char result[MAXREQ]) {
     FILE *file;
-    char row[65535];
+    char row[MAXREQ];
     char abs_path[200] ={'\0'};
     strcat(abs_path, www_path);
     if (!strcmp(path, "/")) {
@@ -103,8 +104,8 @@ void read_file(char *path, long *length, char result[65535]) {
         strcat(abs_path, "/404.html");
         file = fopen(abs_path, "rb");
     }
-    //fgets(result, 65535, file);
-    fread(&result[0], 65535, 1, file);
+    //fgets(result, MAXREQ, file);
+    fread(&result[0], MAXREQ, 1, file);
     fseek(file, 0, SEEK_END); // seek to end of file
     *length = ftell(file); // get current file pointer
     fseek(file, 0, SEEK_SET); // seek back to beginning of file
