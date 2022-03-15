@@ -2,6 +2,7 @@
     "files.associations": {
         "semaphore.h": "c",
         "sem.h": "c",
-        "pthread.h": "c"
+        "pthread.h": "c",
+        "bbuffer.h": "c"
     }
 }

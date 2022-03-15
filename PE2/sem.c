@@ -103,3 +103,7 @@ void V(SEM *sem) {
   pthread_cond_signal(&sem->cond);
   pthread_mutex_unlock(&sem->mutex);
 }
+
+int get_value(SEM *sem) {
+  return sem->value;
+}

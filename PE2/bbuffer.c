@@ -18,7 +18,7 @@
  */
 
 typedef struct BNDBUF {
-  uint8_t* buffer;
+  long long* buffer;
   size_t head;
   size_t tail;
   size_t maxsize;
@@ -66,7 +66,7 @@ BNDBUF *bb_init(unsigned int size) {
   bbuffer->head = 0;
   bbuffer->tail = 0;
   bbuffer->maxsize = size;
-  bbuffer->buffer = malloc(size*sizeof(uint8_t));
+  bbuffer->buffer = malloc(size*sizeof(long long));
   return bbuffer;
 }
 
@@ -101,8 +101,9 @@ void bb_del(BNDBUF *bb) {
 int bb_get(BNDBUF *bb) {
   P(bb->empty_sem);
   V(bb->full_sem);
-  uint8_t element = *(bb->buffer + bb->tail);
-  (bb->tail) = bb->tail + 1 % bb->maxsize;
+  //printf("%i, %ld, %ld\n", get_value(bb->empty_sem), bb->head, bb->tail);
+  long long element = *(bb->buffer + bb->tail);
+  (bb->tail) = (bb->tail + 1) % bb->maxsize;
   return element;
 }
 
@@ -127,10 +128,10 @@ void bb_add(BNDBUF *bb, int fd) {
   P(bb->full_sem);
   V(bb->empty_sem);
   bb->buffer[bb->head] = fd;
-  bb->head = bb->head + 1 % bb->maxsize;
+  bb->head = (bb->head + 1) % bb->maxsize;
 }
 
-int main(void) {
+/*int main(void) {
   BNDBUF *buffer = bb_init(4);
   bb_add(buffer, 32);
   bb_add(buffer, 39);
@@ -144,3 +145,4 @@ int main(void) {
   }
   return 0;
 }
+*/

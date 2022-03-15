@@ -72,5 +72,7 @@ void P(SEM *sem);
 
 void V(SEM *sem); 
 
+int get_value(SEM *sem);
+
 #endif
 
