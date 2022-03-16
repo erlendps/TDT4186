@@ -7,15 +7,22 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <pthread.h>
+#include "bbuffer.h"
 
-#define MAXREQ (4096*1024)
+// 4096*1024
+#define MAXREQ (4096*2048)
 
-char buffer[MAXREQ], msg[MAXREQ];
-char body[MAXREQ] = {'\0'};
-long body_size = 0;
-char content_type[16] = "";
 char *www_path;
 int port;
+int threads;
+int bufferslots;
+
+int sockfd, newsockfd;
+socklen_t clilen;
+struct sockaddr_in serv_addr, cli_addr;
+
+BNDBUF* bbuffer;
 
 void error(const char *msg) {
     perror(msg);
@@ -59,10 +66,10 @@ http_request read_request(char* request) {
     return req;
 }
 
-void get_content_type(char* path, char result[16]) {
-    const char s[2] = ".";
-    char *token;
-    char *token_prev;
+void get_content_type(char* path, char* result) {
+    char const s[2] = ".";
+    char *token = malloc(100);
+    char *token_prev = malloc(100);
 
     token = strtok(path, s);
     
@@ -71,23 +78,26 @@ void get_content_type(char* path, char result[16]) {
         if (token == NULL) {
             result = "text/plain";
             if (strlen(token_prev) < 3) {
-                return;
+                break;
             }
             if (!strcmp(token_prev, "html")) result = "text/html";
             if (!strcmp(token_prev, "css"))  result = "text/css";
             if (!strcmp(token_prev, "ico"))  result = "image/x-icon";
             if (!strcmp(token_prev, "png"))  result = "image/png";
             if (!strcmp(token_prev, "jpg"))  result = "image/jpeg";
-            return;
+            break;
         } else {
-            token_prev = token;
+            *token_prev = *token;
         }
     }
+    free(token);
+    free(token_prev);
+    return;
 }
 
 void read_file(char *path, long *length, char result[MAXREQ]) {
     FILE *file;
-    char row[MAXREQ];
+    char* row = malloc(MAXREQ);
     char abs_path[200] ={'\0'};
     strcat(abs_path, www_path);
     if (!strcmp(path, "/")) {
@@ -96,7 +106,7 @@ void read_file(char *path, long *length, char result[MAXREQ]) {
         strcat(abs_path, path);
     }
     
-    
+
     file = fopen(abs_path, "rb");
     if (file == NULL) {
         memset(abs_path, '\0', sizeof(abs_path));
@@ -113,21 +123,73 @@ void read_file(char *path, long *length, char result[MAXREQ]) {
     //while (fgets(row, sizeof row, file) != NULL) {
     //   strcat(result, row);
     //}
+    
+}
+
+void* serve_request() {
+    long body_size = 0;
+    char* content_type = malloc(16);
+    int threadsockfd;
+    ssize_t n;
+    char* body;
+    char* buffer;
+    char* msg;
+    
+    while (1) {
+        
+        //TODO: Get newsockfd from bbuffer
+        threadsockfd = bb_get(bbuffer);
+        body = malloc(MAXREQ);
+        buffer = malloc(MAXREQ);
+        msg = malloc(MAXREQ);
+        
+        // Reset buffer
+        bzero(buffer, MAXREQ);
+        
+        // Read the HTTP request into buffer
+        n = read(threadsockfd, buffer, MAXREQ-1); 
+        if (n < 0) error("ERROR reading from socket");
+        
+        http_request received_request = read_request(buffer);
+        memset(body, '\0', MAXREQ);
+        read_file(received_request.path, &body_size, body);
+        
+        // Make body of response
+        get_content_type(received_request.path, content_type);
+        // Generate response
+
+        snprintf(msg, MAXREQ,
+            "HTTP/1.1 200 OK\n"
+            "Content-Type: %s\n"
+            "Content-Length: %lu\n\n", content_type, body_size);
+
+        memcpy(&msg[strlen(msg)], body, body_size);
+
+        // Send the response
+        n = write(threadsockfd, msg, strlen(msg) + body_size); 
+        if (n < 0) error("ERROR writing to socket");
+        
+        // Close the connection
+        close (threadsockfd);
+        free(buffer);
+        free(msg);
+        free(body);
+    }
+    free(content_type);
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
 
-    if (argc == 3) {
+    if (argc == 5) {
         www_path = argv[1];
         port = atoi(argv[2]);
+        threads = atoi(argv[3]);
+        bufferslots = atoi(argv[4]);
+    } else {
+        error("Invoke this command using mtwwwd [www-path] [port] [#threads] [#bufferslots]");
     }
     printf("Setting up a server for %s on port %i\n\n", www_path, port);
-
-
-    int sockfd, newsockfd;
-    socklen_t clilen;
-    struct sockaddr_in serv_addr, cli_addr;
-    int n;
     
     // Creates the socket
     sockfd = socket(PF_INET, SOCK_STREAM, 0);
@@ -145,47 +207,26 @@ int main(int argc, char *argv[]) {
 
     listen(sockfd, 5);
 
-    while (1) {   
-        
+    // Create bbuffer
+    bbuffer = bb_init(bufferslots);
+    
+    // threads
+    int thread;
+    pthread_t server_threads[threads];
+    for (int i = 0; i < threads; i++) {
+        thread = pthread_create(&server_threads[i], NULL, serve_request, NULL);
+    }
+    
+    while(1) {
         // Set size of client address
         clilen = sizeof(cli_addr);
-        
+            
         // Accept a new connection
-        newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr,
-            &clilen); 
+        newsockfd = accept(
+            sockfd, (struct sockaddr *) &cli_addr, &clilen);
         if (newsockfd < 0) error("ERROR on accept");
-        
-        // Reset buffer
-        bzero(buffer, sizeof(buffer));
-
-        // Read the HTTP request into buffer
-        n = read(newsockfd,buffer, sizeof(buffer)-1); 
-        if (n < 0) error("ERROR reading from socket");
-
-        http_request received_request = read_request(buffer);
-       // printf("\nType: %s\nPath: %s\n", 
-        //        received_request.type, received_request.path);
-        memset(body, '\0', sizeof(body));
-        read_file(received_request.path, &body_size, body);
-        //printf("%s", body);
-
-        // Make body of response
-        get_content_type(received_request.path, content_type);
-        // Generate response
-
-        snprintf(msg, sizeof (msg),
-            "HTTP/1.1 200 OK\n"
-            "Content-Type: %s\n"
-            "Content-Length: %lu\n\n", content_type, body_size);
-
-        memcpy(&msg[strlen(msg)], body, body_size);
-
-        // Send the response
-        n = write(newsockfd, msg, strlen(msg) + body_size); 
-        if (n < 0) error("ERROR writing to socket");
-
-        // Close the connection
-        close (newsockfd);
+        // TPass file descriptor to bbuffer
+        bb_add(bbuffer, newsockfd);
     }
 }
 

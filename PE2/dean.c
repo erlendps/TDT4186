@@ -7,8 +7,8 @@
 #include <stdbool.h>
 #include <time.h>
 #define BUFFERSIZE 32
-#define CLIENTS 4096
-#define THREADS 128
+#define CLIENTS 16
+#define THREADS 1
 
 SEM *sem;
 BNDBUF *buffer;
@@ -38,9 +38,7 @@ int main(void) {
     usleep(100);
   }
 
-  while (1) {
-    ;
-  }
+  while (1);
   return 0;
 }
 
@@ -49,7 +47,7 @@ void *send_request(void *message) {
   while (1) {
     time(&before);
     bb_add(buffer, (long long)before);
-    usleep(400000); // each client sends a request every 10 seconds
+    usleep(4000000); // each client sends a request every 10 seconds
   }
   return 0;
 }
