@@ -5,13 +5,11 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
 #include <string.h>
 #include <pthread.h>
 #include "bbuffer.h"
 
-// 4096*1024
-#define MAXREQ (4096*2048)
+#define MAXREQ (4096*1024)
 
 char *www_path;
 int port;
@@ -20,19 +18,22 @@ int bufferslots;
 
 int sockfd, newsockfd;
 socklen_t clilen;
-struct sockaddr_in serv_addr, cli_addr;
+struct sockaddr_in6 serv_addr, cli_addr;
 
 BNDBUF* bbuffer;
+
 
 void error(const char *msg) {
     perror(msg);
     exit(1);
 }
 
+
 typedef struct {
-    char type[8];
-    char path[100];
+    char type[8]; // GET, PUT, POST etc.
+    char path[100]; // The requested path
 } http_request;
+
 
 http_request read_request(char* request) {
     http_request req;
@@ -66,8 +67,13 @@ http_request read_request(char* request) {
     return req;
 }
 
+
 void get_content_type(char* path, char* result) {
     char const s[2] = ".";
+    // These pointers could be allocated per thread and passed into the function
+    // to improve application efficiency
+    // However, this would cause the application to use a bit more memory
+    // as inactive threads would keep memory allocated.
     char *token = malloc(100);
     char *token_prev = malloc(100);
 
@@ -85,6 +91,8 @@ void get_content_type(char* path, char* result) {
             if (!strcmp(token_prev, "ico"))  result = "image/x-icon";
             if (!strcmp(token_prev, "png"))  result = "image/png";
             if (!strcmp(token_prev, "jpg"))  result = "image/jpeg";
+            if (!strcmp(token_prev, "gif"))  result = "image/gif";
+            if (!strcmp(token_prev, "txt"))  result = "text/plain";
             break;
         } else {
             *token_prev = *token;
@@ -97,16 +105,15 @@ void get_content_type(char* path, char* result) {
 
 void read_file(char *path, long *length, char result[MAXREQ]) {
     FILE *file;
-    char* row = malloc(MAXREQ);
-    char abs_path[200] ={'\0'};
+    char abs_path[200] = {'\0'};
     strcat(abs_path, www_path);
+    
     if (!strcmp(path, "/")) {
         strcat(abs_path, "/index.html");
     } else {
         strcat(abs_path, path);
     }
     
-
     file = fopen(abs_path, "rb");
     if (file == NULL) {
         memset(abs_path, '\0', sizeof(abs_path));
@@ -114,17 +121,13 @@ void read_file(char *path, long *length, char result[MAXREQ]) {
         strcat(abs_path, "/404.html");
         file = fopen(abs_path, "rb");
     }
-    //fgets(result, MAXREQ, file);
+
     fread(&result[0], MAXREQ, 1, file);
     fseek(file, 0, SEEK_END); // seek to end of file
     *length = ftell(file); // get current file pointer
     fseek(file, 0, SEEK_SET); // seek back to beginning of file
-    
-    //while (fgets(row, sizeof row, file) != NULL) {
-    //   strcat(result, row);
-    //}
-    
 }
+
 
 void* serve_request() {
     long body_size = 0;
@@ -137,7 +140,7 @@ void* serve_request() {
     
     while (1) {
         
-        //TODO: Get newsockfd from bbuffer
+        // Get newsockfd from bbuffer
         threadsockfd = bb_get(bbuffer);
         body = malloc(MAXREQ);
         buffer = malloc(MAXREQ);
@@ -151,18 +154,20 @@ void* serve_request() {
         if (n < 0) error("ERROR reading from socket");
         
         http_request received_request = read_request(buffer);
+        printf("\n%s to %s\n", received_request.type, received_request.path);
         memset(body, '\0', MAXREQ);
         read_file(received_request.path, &body_size, body);
         
-        // Make body of response
-        get_content_type(received_request.path, content_type);
         // Generate response
-
+        get_content_type(received_request.path, content_type);
+        
         snprintf(msg, MAXREQ,
             "HTTP/1.1 200 OK\n"
             "Content-Type: %s\n"
             "Content-Length: %lu\n\n", content_type, body_size);
-
+        
+        // Places the body after the header. It is done this way to allow arbitrary binary files
+        // to be sent, including images. These may include the \0 string terminator.
         memcpy(&msg[strlen(msg)], body, body_size);
 
         // Send the response
@@ -176,11 +181,13 @@ void* serve_request() {
         free(body);
     }
     free(content_type);
+    printf("\nGoodbye.\n");
     return 0;
 }
 
 int main(int argc, char *argv[]) {
 
+    // Handle command line arguments
     if (argc == 5) {
         www_path = argv[1];
         port = atoi(argv[2]);
@@ -191,16 +198,16 @@ int main(int argc, char *argv[]) {
     }
     printf("Setting up a server for %s on port %i\n\n", www_path, port);
     
-    // Creates the socket
-    sockfd = socket(PF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) error("ERROR opening socket");
+    // Create the socket
+    sockfd = socket(PF_INET6, SOCK_STREAM, 0);
+    int flag = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
 
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(port);
-    
     // Binds the socket to an address
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin6_family = AF_INET6;
+    serv_addr.sin6_addr = in6addr_any;
+    serv_addr.sin6_port = htons(port);
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
         error("ERROR on binding");
     }
@@ -210,7 +217,7 @@ int main(int argc, char *argv[]) {
     // Create bbuffer
     bbuffer = bb_init(bufferslots);
     
-    // threads
+    // Create threads
     int thread;
     pthread_t server_threads[threads];
     for (int i = 0; i < threads; i++) {
@@ -220,13 +227,14 @@ int main(int argc, char *argv[]) {
     while(1) {
         // Set size of client address
         clilen = sizeof(cli_addr);
-            
+        
         // Accept a new connection
-        newsockfd = accept(
-            sockfd, (struct sockaddr *) &cli_addr, &clilen);
+        newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
         if (newsockfd < 0) error("ERROR on accept");
-        // TPass file descriptor to bbuffer
+        
+        // Pass file descriptor to bbuffer
         bb_add(bbuffer, newsockfd);
     }
+    bb_del(bbuffer);
+    return 0;
 }
-
