@@ -5,6 +5,7 @@
         "complex": "c",
         "chrono": "c",
         "algorithm": "c",
-        "ostream": "c"
+        "ostream": "c",
+        "stdio.h": "c"
     }
 }

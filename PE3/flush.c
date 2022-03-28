@@ -55,14 +55,15 @@ pid_t execute_command(char** command) {
             printf("Command failed.\n");
             exit(errno);
         }
+    } else {
+        return child;
     }
-    return child;
 }
 
 void* scan_for_eof(void* arg) {
     int pid = *((int *) arg);
-    while (fgetc(stdin) != -1);
-    fflush(stdin);
+    while (fgets(NULL, 100, stdin) != NULL) {;}
+    printf("HSDBHAJSDN");
     kill(pid, SIGINT);
     return 0;
 }
@@ -91,7 +92,7 @@ int main() {
         for (int i = 0; i < command.number_args; i++) {
             free(command.args[i]);
         }
-        pthread_cancel(thread);
+        pthread_kill(thread, SIGKILL);
     }
     //pthread_create(&t1, NULL, scan_for_eof, NULL);
     //pthread_join(t1, NULL);
