@@ -1,0 +1,21 @@
+  PID TTY           TIME CMD
+27231 ttys001    0:00.07 /Applications/Xcode.app/Contents/Developer/usr/bin/xcdevice observe --both
+27782 ttys002    0:00.07 /Applications/Xcode.app/Contents/Developer/usr/bin/xcdevice observe --both
+ 9472 ttys003    0:00.34 -zsh
+11876 ttys003    0:00.03 man errno
+11879 ttys003    0:00.00 sh -c /usr/bin/mandoc -c -O width=122 '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/share/man/man2/intro.2' | (/usr/bin/less -is || true)
+11880 ttys003    0:00.00 /usr/bin/mandoc -c -O width=122 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/share/man/man2/intro.2
+11881 ttys003    0:00.00 sh -c /usr/bin/mandoc -c -O width=122 '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/share/man/man2/intro.2' | (/usr/bin/less -is || true)
+11882 ttys003    0:00.00 /usr/bin/less -is
+11884 ttys003    0:00.03 man errno
+11887 ttys003    0:00.00 sh -c /usr/bin/mandoc -c -O width=122 '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/share/man/man2/intro.2' | (/usr/bin/less -is || true)
+11888 ttys003    0:00.00 /usr/bin/mandoc -c -O width=122 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/share/man/man2/intro.2
+11889 ttys003    0:00.00 sh -c /usr/bin/mandoc -c -O width=122 '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/share/man/man2/intro.2' | (/usr/bin/less -is || true)
+11890 ttys003    0:00.00 /usr/bin/less -is
+17688 ttys003    0:00.04 man 3 sleep
+17691 ttys003    0:00.00 sh -c /usr/bin/mandoc -c -O width=167 '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/share/man/man3/sleep.3' | (/usr/bin/less -is || true)
+17693 ttys003    0:00.00 sh -c /usr/bin/mandoc -c -O width=167 '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/share/man/man3/sleep.3' | (/usr/bin/less -is || true)
+17694 ttys003    0:00.00 /usr/bin/less -is
+10581 ttys004    0:00.34 /bin/zsh -l
+17826 ttys004    0:00.00 ./flush
+17384 ttys005    0:00.07 /bin/zsh -l
