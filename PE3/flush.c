@@ -86,13 +86,11 @@ int main() {
         input[strlen(input)-1] = '\0';
         parse_command(&command, input);
         child = execute_command(command.args);
-        pthread_create(&thread, NULL, scan_for_eof, (void*) &child);
         waitpid(child, &status, 0);
         printf("Exit status [%s] = %i\n", input, WEXITSTATUS(status));
         for (int i = 0; i < command.number_args; i++) {
             free(command.args[i]);
         }
-        pthread_kill(thread, SIGKILL);
     }
     //pthread_create(&t1, NULL, scan_for_eof, NULL);
     //pthread_join(t1, NULL);
