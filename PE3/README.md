@@ -1,5 +1,7 @@
 # TDT 4186 - Practical Exercise 3
 
+Task 3.1 - 3.5 is implemented in `flush.c`.
+
 ## How it works
 
 A struct is made for the command input in the prompt, as well as
