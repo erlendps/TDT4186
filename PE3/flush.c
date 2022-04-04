@@ -1,5 +1,5 @@
-#include <sys/socket.h>
-#include <netinet/in.h>
+//#include <sys/socket.h>
+//#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -9,14 +9,12 @@
 #include <sys/wait.h>
 #include <sys/errno.h>
 #include <signal.h>
-// bip bop
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
 #define STR_EQUAL 0
 #define MAX_ARGS 16
-
 typedef struct {
     size_t arg_count;
     char name[255];
@@ -105,7 +103,12 @@ void parse_command(command_t *arg_output, char* command) {
 
     // set background task 
     if (arg_output->args[i-1][j-1] == '&') {
-        arg_output->args[i-1][j-1] = '\0';
+        if (j == 1) {
+            arg_output->args[i-1] = NULL;
+        } else {
+            arg_output->args[i-1][j-1] = '\0';
+        }
+
         arg_output->background_task = true;
     } else {
         arg_output->background_task = false;
@@ -219,13 +222,13 @@ int main() {
             pid = execute_command(&command);
             if (command.background_task) {
                 insert_process(&head, command.name, pid);
-                printf("Started command [%s] in the background", input);
+                printf("Started command [%s] in the background\n", input);
             } else {
                 waitpid(pid, &status, 0);
                 exit_status = WEXITSTATUS(status);
             }
         }
-        printf("Exit status [%s] = %i\n", input, exit_status);
+        printf("\nExit status [%s] = %i\n", input, exit_status);
         
         // reset command struct
         for (int i = 0; i < command.arg_count; i++) {
