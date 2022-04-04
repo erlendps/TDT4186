@@ -6,7 +6,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <string.h>
-#include <pthread.h>
 #include <sys/wait.h>
 #include <sys/errno.h>
 #include <signal.h>
@@ -142,7 +141,7 @@ pid_t execute_command(command_t *command) {
     if (pid == 0) {
 
         if (in) {
-            int fd0 = open(input, O_RDONLY);
+            int fd0 = open(input, O_RDONLY, 0);
             if (fd0 < 0) {
                 exit(errno);
             }
@@ -162,11 +161,12 @@ pid_t execute_command(command_t *command) {
             close(fd1);
         }
     
-        int e = execv(command->name, &(command->args[0]));
+        int e = execvp(command->name, &(command->args[0]));
         if (e == -1) {
             printf("Command failed.\n");
             exit(errno); // Exit status
         }
+
         return 0;
     } else {
         return pid;
@@ -180,7 +180,7 @@ int main() {
     int status = 0;
     command_t command;
     char input[256];
-    
+    pid_t zombie;
     linked_process_t head;
     strcpy(head.name, "head");
     head.next_process = NULL;
@@ -188,12 +188,11 @@ int main() {
 
     while (1) {
         exit_status = 0;
-        pthread_t thread;
         char path[256];
 
         // flush should collect all background processes that have terminated (zombies) and print
         // their exit status like for the foreground processes of the first subtask.
-        pid_t zombie;
+        
         do {
             zombie = waitpid(0, &status, WNOHANG);
             if (zombie > 0) {
