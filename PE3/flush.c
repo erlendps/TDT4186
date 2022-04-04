@@ -34,7 +34,6 @@ void parse_command(command_t *arg_output, char* command);
 pid_t execute_command(command_t *command);
 
 void insert_process(linked_process_t *head, char name[255], pid_t pid) {
-    
     linked_process_t *tail = head;
     while (tail->next_process != NULL) {
         tail = tail->next_process;
@@ -48,18 +47,15 @@ void insert_process(linked_process_t *head, char name[255], pid_t pid) {
 }
 
 bool delete_process(linked_process_t *head, pid_t pid) {
-    
     linked_process_t *process = head;
     linked_process_t *process_prev = process;
     
     while (process != NULL) {
-        
         if (process->pid == pid) {
             process_prev->next_process = process->next_process;
             free(process);
             return true;
         }
-
         process_prev = process;
         process = process->next_process;
     }
@@ -227,9 +223,9 @@ int main() {
             } else {
                 waitpid(pid, &status, 0);
                 exit_status = WEXITSTATUS(status);
-                printf("Exit status [%s] = %i\n", input, exit_status);
             }
         }
+        printf("Exit status [%s] = %i\n", input, exit_status);
         
         // reset command struct
         for (int i = 0; i < command.arg_count; i++) {
